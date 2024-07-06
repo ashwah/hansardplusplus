@@ -1,0 +1,4 @@
+.vscode/
+hans-env/
+__pycache__
+.env
