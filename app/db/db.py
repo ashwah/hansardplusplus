@@ -29,38 +29,72 @@ class Database:
         self.cur.close()
         self.conn.close()
 
-    def insertDocument(self, collection, document_date, document_title):
+    def insertDebate(self, collection, debate_date, debate_title):
         self.connect()
         self.cur.execute("""
-            INSERT INTO document (collection, document_date, document_title)
+            INSERT INTO debate (collection, debate_date, debate_title)
             VALUES (%s, %s, %s)
             RETURNING id;
-        """, (collection, document_date, document_title))
+        """, (collection, debate_date, debate_title))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
     
-    def insertStatement(self, document_id, order_id, speaker_raw, statement_raw):
+    def insertStatement(self, debate_id, order_id, speaker_raw, statement_raw):
         self.connect()
         self.cur.execute("""
-            INSERT INTO statement (document_id, order_id, speaker_raw, statement_raw)
+            INSERT INTO statement (debate_id, order_id, speaker_raw, statement_raw)
             VALUES (%s, %s, %s, %s)
             RETURNING id;
-        """, (document_id, order_id, speaker_raw, statement_raw))
+        """, (debate_id, order_id, speaker_raw, statement_raw))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
     
-    def insertTag(self, document_id, tag):
+    def insertStatementAnon(self, debate_id, order_id, statement_raw):
         self.connect()
         self.cur.execute("""
-            INSERT INTO tag (document_id, tag)
-            VALUES (%s, %s)
+            INSERT INTO statement_anon (debate_id, order_id, statement_raw)
+            VALUES (%s, %s, %s)
             RETURNING id;
-        """, (document_id, tag))
+        """, (debate_id, order_id, statement_raw))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
+
+    def insertProcessedDate(self, processed_date):
+        self.connect()
+        self.cur.execute("""
+            INSERT INTO processed (processed_date)
+            VALUES (%s)
+            RETURNING id;
+        """, (processed_date,))
+        self.conn.commit()
+        inserted_id = self.cur.fetchone()[0]
+        self.close()
+        return inserted_id    
+        
+    def getProcessedDates(self):
+        self.connect()
+        self.cur.execute("""
+            SELECT processed_date
+            FROM processed;
+        """)
+        dates = [row[0] for row in self.cur.fetchall()]
+        self.close()
+        return dates
+
+    # def insertTag(self, document_id, tag):
+    #     self.connect()
+    #     self.cur.execute("""
+    #         INSERT INTO tag (document_id, tag)
+    #         VALUES (%s, %s)
+    #         RETURNING id;
+    #     """, (document_id, tag))
+    #     self.conn.commit()
+    #     inserted_id = self.cur.fetchone()[0]
+    #     self.close()
+    #     return inserted_id

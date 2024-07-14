@@ -14,18 +14,18 @@ cur = db.cur
 # """)
 
 cur.execute("""
-    CREATE TABLE IF NOT EXISTS document (
+    CREATE TABLE IF NOT EXISTS debate (
         id SERIAL PRIMARY KEY,
         collection collection,
-        document_date DATE,
-        document_title TEXT    
+        debate_date DATE,
+        debate_title TEXT    
     );
 """)
 
 cur.execute("""
     CREATE TABLE IF NOT EXISTS statement (
         id SERIAL PRIMARY KEY,
-        document_id INT,
+        debate_id INT,
         order_id INT,
         speaker_raw TEXT,
         statement_raw TEXT
@@ -33,12 +33,28 @@ cur.execute("""
 """)
 
 cur.execute("""
-    CREATE TABLE IF NOT EXISTS tag (
+    CREATE TABLE IF NOT EXISTS statement_anon (
         id SERIAL PRIMARY KEY,
-        document_id INT,
-        tag TEXT
+        debate_id INT,
+        order_id INT,
+        statement_raw TEXT
     );
 """)
+
+cur.execute("""
+    CREATE TABLE IF NOT EXISTS processed (
+        id SERIAL PRIMARY KEY,
+        processed_date DATE
+    );
+""")
+
+# cur.execute("""
+#     CREATE TABLE IF NOT EXISTS tag (
+#         id SERIAL PRIMARY KEY,
+#         document_id INT,
+#         tag TEXT
+#     );
+# """)
 
 # Insert some data into the table
 # cur.execute("""
