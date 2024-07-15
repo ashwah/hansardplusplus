@@ -13,13 +13,15 @@ def process_check_hansard_site():
     current_date = datetime.date.today() - datetime.timedelta(days=1) 
     processed = db.getProcessedDates()
 
-    while True:
-        already_processed = True if current_date in processed else False
+    loop = True
+    while loop:
 
         if current_date < datetime.date(2023, 11, 26):
             print(f"Hit stop date, don't go beyond.")
+            loop = False
             break
 
+        already_processed = True if current_date in processed else False
         if already_processed:
             print(f"Already processed {current_date}.")
             current_date -= datetime.timedelta(days=1) 
@@ -31,6 +33,7 @@ def process_check_hansard_site():
             # If there were debates to process, log the date as processed and stop.
             print(f"Processed {debates_processed} debates for {current_date}.")
             db.insertProcessedDate(current_date)
+            loop = False
             break
         
         elif current_date_age > 3:
@@ -47,11 +50,12 @@ def process_check_hansard_site():
     
     
 
+# def process_mp_ids(queue):
+
 # def process_topics(queue):
-#     # Process topics data from data
-#     response = requests.get(HANSARD_URL)
-#     data = response.json()
-#     queue.put(data)
+
+# def process_statement_vectors(queue):
+
 
 
 # Main script
