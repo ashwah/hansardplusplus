@@ -16,13 +16,16 @@ def process_check_hansard_site():
     while True:
         already_processed = True if current_date in processed else False
 
+        if current_date < datetime.date(2023, 11, 26):
+            print(f"Hit stop date, don't go beyond.")
+            break
+
         if already_processed:
             print(f"Already processed {current_date}.")
             current_date -= datetime.timedelta(days=1) 
             continue
 
         current_date_age = (datetime.date.today() - current_date).days
-
         debates_processed = check_hansard_site('commons', current_date.isoformat())
         if debates_processed > 0 :
             # If there were debates to process, log the date as processed and stop.
@@ -35,10 +38,6 @@ def process_check_hansard_site():
             db.insertProcessedDate(current_date)
             current_date -= datetime.timedelta(days=1)
             continue
-        
-        elif current_date <= datetime.date(2024, 1, 1):
-            print(f"Hit stop date, don't go beyond.")
-            break
 
         else:
             print(f"No debates found for {current_date} but it was less that 3 days ago so we don't log it as processed.")
@@ -49,7 +48,7 @@ def process_check_hansard_site():
     
 
 # def process_topics(queue):
-#     # Download Hansard data from URL
+#     # Process topics data from data
 #     response = requests.get(HANSARD_URL)
 #     data = response.json()
 #     queue.put(data)
@@ -67,7 +66,6 @@ if __name__ == "__main__":
     # Run script indefinitely
     while True:
         # Check for new data every hour
-        # schedule.every(1).hours.do(process_check_hansard_site)
         schedule.every(5).minutes.do(process_check_hansard_site)
         schedule.run_pending()
         time.sleep(1)

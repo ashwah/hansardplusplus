@@ -23,6 +23,10 @@ cur.execute("""
 """)
 
 cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_debate_date ON debate (debate_date);
+""")
+
+cur.execute("""
     CREATE TABLE IF NOT EXISTS statement (
         id SERIAL PRIMARY KEY,
         debate_id INT,
@@ -33,12 +37,20 @@ cur.execute("""
 """)
 
 cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_statement_debate_id ON statement (debate_id);
+""")
+
+cur.execute("""
     CREATE TABLE IF NOT EXISTS statement_anon (
         id SERIAL PRIMARY KEY,
         debate_id INT,
         order_id INT,
         statement_raw TEXT
     );
+""")
+
+cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_statement_anon_debate_id ON statement_anon (debate_id);
 """)
 
 cur.execute("""
