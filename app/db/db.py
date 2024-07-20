@@ -41,13 +41,13 @@ class Database:
         self.close()
         return inserted_id
     
-    def insertStatement(self, debate_id, order_id, speaker_raw, statement_raw):
+    def insertStatement(self, debate_id, order_id, speaker_raw, statement_raw, speaker_id):
         self.connect()
         self.cur.execute("""
-            INSERT INTO statement (debate_id, order_id, speaker_raw, statement_raw)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO statement (debate_id, order_id, speaker_raw, statement_raw, speaker_id)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id;
-        """, (debate_id, order_id, speaker_raw, statement_raw))
+        """, (debate_id, order_id, speaker_raw, statement_raw, speaker_id))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()

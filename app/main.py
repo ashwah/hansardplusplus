@@ -1,9 +1,13 @@
-from threading import Thread
+from threading import Thread, Lock
 from processes.check_hansard_site import check_hansard_site
 from db.db import Database
 import schedule
 import time
 import datetime
+from abc import ABC, abstractmethod
+from processes.process_test_1 import Process1
+from processes.process_test_2 import Process2
+import signal 
 
 db = Database()
 
@@ -58,18 +62,36 @@ def process_check_hansard_site():
 
 
 
-# Main script
-if __name__ == "__main__":
 
-    # Create threads for each process
-    download_thread = Thread(target=process_check_hansard_site)
 
-    # Start threads
-    download_thread.start()
+p1 = Process1()
+p2 = Process2()
 
-    # Run script indefinitely
-    while True:
-        # Check for new data every hour
-        schedule.every(5).minutes.do(process_check_hansard_site)
+schedule.every(3).seconds.do(p1.thread)
+schedule.every(2).seconds.do(p2.thread)
+
+running = True
+
+def signal_handler(sig, frame):
+    global running
+
+    print("Received SIGINT signal. Shutting down...")
+
+    # Clear the schedule.
+    schedule.clear()
+
+    # Set the running flag to False to stop the main loop.
+    running = False
+
+    print("Shutdown complete.")
+
+def main():
+    global running
+    while running:
+        print("Running...")
         schedule.run_pending()
         time.sleep(1)
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+    main()

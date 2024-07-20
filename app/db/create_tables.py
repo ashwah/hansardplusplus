@@ -10,7 +10,7 @@ cur = db.cur
 # """)
 
 # cur.execute("""
-#     CREATE TYPE IF NOT EXISTS collection AS ENUM ('commons', 'lords');
+#     CREATE TYPE collection AS ENUM ('commons', 'lords');
 # """)
 
 cur.execute("""
@@ -32,7 +32,8 @@ cur.execute("""
         debate_id INT,
         order_id INT,
         speaker_raw TEXT,
-        statement_raw TEXT
+        statement_raw TEXT,
+        speaker_id INT
     );
 """)
 

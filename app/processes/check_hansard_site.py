@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from db.db import Database
+from urllib.parse import urlparse, parse_qs
 
 import time
 import cloudscraper
@@ -67,13 +68,21 @@ def scrape_debate(url, collection, date):
             primary = primary_element.text.strip() if primary_element else ''
             secondary = secondary_element.text.strip() if secondary_element else ''
             
-            name = primary + ' ' + secondary
-            name = name.strip()
+            speaker = primary + ' ' + secondary
+            speaker = speaker.strip()
+
+            speaker_link = debate_item.find('a', class_='attributed-to-details')
+
+            if (speaker_link):
+                href = speaker_link.get('href')
+                speaker_id = int(parse_qs(urlparse(href).query).get('memberId')[0])
+            else:
+                speaker_id = 0
 
             content_paras = debate_item.find_all('p', class_='hs_Para')
 
-            if name and content_paras:
-                print('Name: ' + name)
+            if speaker and content_paras:
+                print('Speaker: ' + speaker)
                 print('')
                 
                 statement = ''
@@ -84,7 +93,7 @@ def scrape_debate(url, collection, date):
                         print(content_para_text)
                 print('')
 
-                db.insertStatement(doc_id, i, name, statement)
+                db.insertStatement(doc_id, i, speaker, statement, speaker_id)
 
         # If the debate item is an anon statement.
         if 'debate-item-otherdebateitem' in debate_item.attrs['class']:
