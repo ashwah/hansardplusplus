@@ -5,7 +5,7 @@ db.connect()
 
 cur = db.cur
 
-date = '2024-05-22'
+date = '2024-05-15'
 
 cur.execute("""
     DELETE FROM debate WHERE debate_date = %s;
