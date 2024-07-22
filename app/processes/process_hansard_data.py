@@ -11,22 +11,32 @@ class ProcessHansardData(ProcessBase):
     BASE_URL = 'https://hansard.parliament.uk/'
     
 
+    def __init__(self, collection):
+        super().__init__() 
+        self.collection = collection
+
+
     def process(self):
 
         self.db = Database()
 
         print("Checking Hansard site...")
+            
         # Start from yesterday
         current_date = datetime.date.today() - datetime.timedelta(days=1) 
-        processed = self.db.getProcessedDates()
+
+        processed = self.db.getProcessedDateList(self.collection)
 
         loop = True
         while loop:
 
+            # Set the URL for this collection and date.
+            url = self.BASE_URL + self.collection + '/' + current_date.isoformat()
+
             if current_date < datetime.date(2023, 11, 26):
                 print(f"Hit stop date, don't go beyond.")
                 loop = False
-                break
+                continue
 
             already_processed = True if current_date in processed else False
             if already_processed:
@@ -35,26 +45,37 @@ class ProcessHansardData(ProcessBase):
                 continue
 
             current_date_age = (datetime.date.today() - current_date).days
-            debates_processed = self.check_hansard_site('commons', current_date.isoformat())
+            
+            # See if the current date has a log entry.
+            processed_id = self.db.getProcessedDate(self.collection, current_date.isoformat())
+            if processed_id:
+                self.db.updateProcessed(processed_id, processed_state="pending", updated=datetime.datetime.now())
+            else:
+                # Log the date as pending.
+                processed_id = self.db.insertProcessed(current_date, url, self.collection, "pending", 0, datetime.datetime.now(), datetime.datetime.now())
+            
+            # Check the Hansard site for debates on the current date.
+            debates_processed = self.check_hansard_site(self.collection, current_date.isoformat(), processed_id)
             if debates_processed > 0 :
                 # If there were debates to process, log the date as processed and stop.
-                print(f"Processed {debates_processed} debates for {current_date}.")
-                self.db.insertProcessedDate(current_date)
+                print(f"Processed {debates_processed} debates in {self.collection} for {current_date}.")
+                self.db.updateProcessed(processed_id, processed_state="completed", updated=datetime.datetime.now(), processed_count=debates_processed)
                 loop = False
-                break
+                continue
             
             elif current_date_age > 3:
-                print(f"No debates found for {current_date} and it was more that 3 days ago so we log it as processed.")
-                self.db.insertProcessedDate(current_date)
+                print(f"No debates found in {self.collection} for {current_date} and it was more that 3 days ago so we log it as 'no_debates'.")
+                self.db.updateProcessed(processed_id, processed_state="no_debates", updated=datetime.datetime.now())
                 current_date -= datetime.timedelta(days=1)
                 continue
 
             else:
-                print(f"No debates found for {current_date} but it was less that 3 days ago so we don't log it as processed.")
+                print(f"No debates found in {self.collection} for {current_date} but it was less that 3 days ago so we log it as 'unready'.")
+                self.db.updateProcessed(processed_id, processed_state="unready", updated=datetime.datetime.now())
                 current_date -= datetime.timedelta(days=1)
                 continue
 
-    def check_hansard_site(self, collection, date):
+    def check_hansard_site(self, collection, date, processed_id):
         scraper = cloudscraper.create_scraper() 
 
         html = scraper.get(self.BASE_URL + collection + '/' + date).text
@@ -67,25 +88,35 @@ class ProcessHansardData(ProcessBase):
             count += 1
             href = a_tag.get('href')
             if href and href!= '#' and not href.startswith('#'):
+                # Log the debate in the database with a status of 'pending'.
+                debate_id = self.db.insertDebate(processed_id, collection, date, '', href, 'pending', datetime.datetime.now(), datetime.datetime.now())
+
                 # Wait five seconds before scraping the page so CF doesn't get spooked.
                 time.sleep(5)   
+
+
                 print(f"Debate URL: {href}")
-                self.scrape_debate(href, collection, date)
+
+                # Scrape the debate.
+                self.scrape_debate(href, collection, date, debate_id)
 
         return count
     
-    def scrape_debate(self, url, collection, date):
+    def scrape_debate(self, url, collection, date, debate_id):
         scraper = cloudscraper.create_scraper() 
         response = scraper.get(self.BASE_URL + url)
 
-        if response.status_code != 200:
-            time.sleep(10)
-            response = scraper.get(self.BASE_URL + url)
+        try:
             if response.status_code != 200:
-                time.sleep(15)
+                time.sleep(10)
                 response = scraper.get(self.BASE_URL + url)
                 if response.status_code != 200:
-                    return
+                    time.sleep(15)
+                    response = scraper.get(self.BASE_URL + url)
+                    if response.status_code != 200:
+                        return
+        except:
+            return
 
 
         html = response.text
@@ -104,8 +135,8 @@ class ProcessHansardData(ProcessBase):
         title_combined = title + '\n' + subtitle
         title_combined = title_combined.strip()
 
-        # Create a document in the database.
-        doc_id = self.db.insertDebate(collection, date, title_combined)
+        # Update the debate with the title.
+        self.db.updateDebate(debate_id, debate_title=title_combined)
 
         # Find all the types of elements that we're interested in.
         debate_items = soup.select('div.debate-item-contributiondebateitem, div.debate-item-otherdebateitem, div.debate-item-columnnumber')
@@ -146,11 +177,13 @@ class ProcessHansardData(ProcessBase):
                             print(content_para_text)
                     print('')
 
-                    self.db.insertStatement(doc_id, i, speaker, statement, speaker_id)
+                    self.db.insertStatement(debate_id, i, speaker, statement, speaker_id)
 
             # If the debate item is an anon statement.
             if 'debate-item-otherdebateitem' in debate_item.attrs['class']:
                 anon_statement_paragraph = debate_item.find('p')
                 if anon_statement_paragraph:
                     print('Anon: ' + anon_statement_paragraph.text.strip())
-                    self.db.insertStatementAnon(doc_id, i, anon_statement_paragraph.text.strip())
+                    self.db.insertStatementAnon(debate_id, i, anon_statement_paragraph.text.strip())
+        
+        self.db.updateDebate(debate_id, debate_state="completed", updated=datetime.datetime.now())

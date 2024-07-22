@@ -29,18 +29,136 @@ class Database:
         self.cur.close()
         self.conn.close()
 
-    def insertDebate(self, collection, debate_date, debate_title):
+    def insertProcessed(self, processed_date, processed_url, collection, processed_state, processed_count, created, updated):
         self.connect()
         self.cur.execute("""
-            INSERT INTO debate (collection, debate_date, debate_title)
-            VALUES (%s, %s, %s)
+            INSERT INTO processed (processed_date, processed_url, collection, processed_state, processed_count, created, updated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
-        """, (collection, debate_date, debate_title))
+        """, (processed_date, processed_url, collection, processed_state, processed_count, created, updated))
+        self.conn.commit()
+        inserted_id = self.cur.fetchone()[0]
+        self.close()
+        return inserted_id    
+
+    def updateProcessed(self, id, processed_date=None, processed_url=None, collection=None, processed_state=None, processed_count=None, created=None, updated=None):
+        self.connect()
+        update_fields = []
+        update_values = []
+        
+        if processed_date:
+            update_fields.append("processed_date = %s")
+            update_values.append(processed_date)
+        if processed_url:
+            update_fields.append("processed_url = %s")
+            update_values.append(processed_url)
+        if collection:
+            update_fields.append("collection = %s")
+            update_values.append(collection)
+        if processed_state:
+            update_fields.append("processed_state = %s")
+            update_values.append(processed_state)
+        if processed_count:
+            update_fields.append("processed_count = %s")
+            update_values.append(processed_count)
+        if created:
+            update_fields.append("created = %s")
+            update_values.append(created)
+        if updated:
+            update_fields.append("updated = %s")
+            update_values.append(updated)
+        
+        update_values.append(id)
+        
+        self.cur.execute("""
+            UPDATE processed
+            SET {}
+            WHERE id = %s;
+        """.format(", ".join(update_fields)), update_values)
+        self.conn.commit()
+        self.close()
+        
+    def getProcessedDateList(self, collection):
+        self.connect()
+        self.cur.execute("""
+            SELECT processed_date
+            FROM processed
+            WHERE collection = %s AND processed_state != 'unready';
+        """, (collection,))
+        dates = [row[0] for row in self.cur.fetchall()]
+        self.close()
+        return dates
+    
+    def getProcessedDate(self, collection, date):
+        self.connect()
+        self.cur.execute("""
+            SELECT id
+            FROM processed
+            WHERE collection = %s AND processed_date = %s;
+        """, (collection, date))
+        row = self.cur.fetchone()
+        if row:
+            id = row[0]
+        else:
+            id = None
+        self.close()
+        return id
+
+    def insertDebate(self, processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated):
+        self.connect()
+        self.cur.execute("""
+            INSERT INTO debate (processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+        """, (processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
     
+    def updateDebate(self, id, processed_id=None, collection=None, debate_date=None, debate_title=None, debate_url=None, debate_state=None, created=None, updated=None):
+        self.connect()
+        update_fields = []
+        update_values = []
+
+        if processed_id:
+            update_fields.append("processed_id = %s")
+            update_values.append(processed_id)        
+        if collection:
+            update_fields.append("collection = %s")
+            update_values.append(collection)
+        if debate_date:
+            update_fields.append("debate_date = %s")
+            update_values.append(debate_date)
+        if collection:
+            update_fields.append("collection = %s")
+            update_values.append(collection)
+        if debate_title:
+            update_fields.append("debate_title = %s")
+            update_values.append(debate_title)
+        if debate_url:
+            update_fields.append("debate_url = %s")
+            update_values.append(debate_url)
+        if debate_state:
+            update_fields.append("debate_state = %s")
+            update_values.append(debate_state)
+        if created:
+            update_fields.append("created = %s")
+            update_values.append(created)
+        if updated:
+            update_fields.append("updated = %s")
+            update_values.append(updated)
+        
+        update_values.append(id)
+        
+        self.cur.execute("""
+            UPDATE debate
+            SET {}
+            WHERE id = %s;
+        """.format(", ".join(update_fields)), update_values)
+        self.conn.commit()
+        self.close()
+
     def insertStatement(self, debate_id, order_id, speaker_raw, statement_raw, speaker_id):
         self.connect()
         self.cur.execute("""
@@ -65,27 +183,7 @@ class Database:
         self.close()
         return inserted_id
 
-    def insertProcessedDate(self, processed_date):
-        self.connect()
-        self.cur.execute("""
-            INSERT INTO processed (processed_date)
-            VALUES (%s)
-            RETURNING id;
-        """, (processed_date,))
-        self.conn.commit()
-        inserted_id = self.cur.fetchone()[0]
-        self.close()
-        return inserted_id    
-        
-    def getProcessedDates(self):
-        self.connect()
-        self.cur.execute("""
-            SELECT processed_date
-            FROM processed;
-        """)
-        dates = [row[0] for row in self.cur.fetchall()]
-        self.close()
-        return dates
+    
 
     # def insertTag(self, document_id, tag):
     #     self.connect()

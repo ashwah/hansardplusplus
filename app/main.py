@@ -6,13 +6,18 @@ import signal
 import time
 
 # Define our processes.
-p1 = Process1()
-p2 = Process2()
-process_hansard = ProcessHansardData()
+# p1 = Process1()
+# p2 = Process2()
+process_commons = ProcessHansardData('commons')
+process_lords = ProcessHansardData('lords')
 
-schedule.every(3).seconds.do(p1.thread)
-schedule.every(2).seconds.do(p2.thread)
-schedule.every(5).seconds.do(process_hansard.thread)
+process_commons.process()
+process_lords.process()
+
+# schedule.every(3).seconds.do(p1.thread)
+# schedule.every(2).seconds.do(p2.thread)
+schedule.every(2).minutes.do(process_commons.thread)
+schedule.every(2).minutes.do(process_lords.thread)
 
 running = True
 

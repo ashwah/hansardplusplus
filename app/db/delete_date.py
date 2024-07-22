@@ -5,11 +5,14 @@ db.connect()
 
 cur = db.cur
 
-date = '2024-05-15'
+date = '2024-01-31'
+collection = 'lords'
 
 cur.execute("""
-    DELETE FROM debate WHERE debate_date = %s;
-""", (date,))
+    DELETE FROM debate 
+    WHERE debate_date = %s
+    AND collection = %s;
+""", (date, collection))
 
 cur.execute("""
     DELETE FROM statement
@@ -17,8 +20,9 @@ cur.execute("""
         SELECT debate_id
         FROM debate
         WHERE debate_date = %s
+        AND collection = %s
     );
-""", (date,))
+""", (date, collection))
 
 cur.execute("""
     DELETE FROM statement_anon
@@ -26,12 +30,15 @@ cur.execute("""
         SELECT debate_id
         FROM debate
         WHERE debate_date = %s
+        AND collection = %s
     );
-""", (date,))
+""", (date, collection))
 
 cur.execute("""
-    DELETE FROM processed WHERE processed_date = %s;
-""", (date,))
+    DELETE FROM processed ç
+    WHERE processed_date = %s
+    AND collection = %s;
+""", (date, collection))
 
 db.conn.commit()
 db.close()
