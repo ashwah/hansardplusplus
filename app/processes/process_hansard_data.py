@@ -56,7 +56,13 @@ class ProcessHansardData(ProcessBase):
             
             # Check the Hansard site for debates on the current date.
             debates_processed = self.check_hansard_site(self.collection, current_date.isoformat(), processed_id)
-            if debates_processed > 0 :
+            
+            if debates_processed == -1 :
+                # If the function returned -1 it means the site didn't respond with a 200 status code.
+                # We leave the date as pending and try again in another process.
+                print(f"Failed to obtain hansard page in {self.collection} for {current_date}. ")
+                continue
+            elif debates_processed > 0 :
                 # If there were debates to process, log the date as processed and stop.
                 print(f"Processed {debates_processed} debates in {self.collection} for {current_date}.")
                 self.db.updateProcessed(processed_id, processed_state="completed", updated=datetime.datetime.now(), processed_count=debates_processed)
@@ -78,8 +84,21 @@ class ProcessHansardData(ProcessBase):
     def check_hansard_site(self, collection, date, processed_id):
         scraper = cloudscraper.create_scraper() 
 
-        html = scraper.get(self.BASE_URL + collection + '/' + date).text
-        
+        try:
+            # Check that we get a 200 response from the site. If not retry, then give up.
+            response = scraper.get(self.BASE_URL + collection + '/' + date)
+            if response.status_code != 200:
+                time.sleep(10)
+                response = scraper.get(self.BASE_URL + collection + '/' + date)
+                if response.status_code != 200:
+                    return -1
+        except:
+            return -1
+
+
+        html = response.text
+
+
         soup = BeautifulSoup(html, 'html.parser')
 
         a_tags = soup.find_all('a', class_='card-section')

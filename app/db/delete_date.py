@@ -5,8 +5,8 @@ db.connect()
 
 cur = db.cur
 
-date = '2024-01-31'
-collection = 'lords'
+date = '2024-03-26'
+collection = 'commons'
 
 cur.execute("""
     DELETE FROM debate 
