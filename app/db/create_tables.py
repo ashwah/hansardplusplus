@@ -30,6 +30,7 @@ cur.execute("""
         debate_date DATE,
         debate_title TEXT,
         debate_url TEXT,
+        debate_aggregate_url TEXT,
         debate_state TEXT,
         created TIMESTAMP,
         updated TIMESTAMP

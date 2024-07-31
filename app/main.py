@@ -9,8 +9,10 @@ import time
 process_commons = ProcessHansardData('commons')
 process_lords = ProcessHansardData('lords')
 
-schedule.every(2).minutes.do(process_commons.thread)
-schedule.every(2).minutes.do(process_lords.thread)
+process_lords.process()
+
+# schedule.every(5).minutes.do(process_commons.thread)
+# schedule.every(5).minutes.do(process_lords.thread)
 
 running = True
 
@@ -30,7 +32,6 @@ def signal_handler(sig, frame):
 def main():
     global running
     while running:
-        # print("Running...")
         schedule.run_pending()
         time.sleep(1)
 

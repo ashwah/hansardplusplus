@@ -8,7 +8,7 @@ import cloudscraper
 
 class ProcessHansardData(ProcessBase):
 
-    BASE_URL = 'https://hansard.parliament.uk/'
+    BASE_URL = 'https://hansard.parliament.uk'
     
 
     def __init__(self, collection):
@@ -22,6 +22,8 @@ class ProcessHansardData(ProcessBase):
 
         print("Checking Hansard site...")
             
+
+
         # Start from yesterday
         current_date = datetime.date.today() - datetime.timedelta(days=1) 
 
@@ -33,7 +35,7 @@ class ProcessHansardData(ProcessBase):
             # Set the URL for this collection and date.
             url = self.BASE_URL + self.collection + '/' + current_date.isoformat()
 
-            if current_date < datetime.date(2023, 11, 26):
+            if current_date < datetime.date(2023, 11, 1):
                 print(f"Hit stop date, don't go beyond.")
                 loop = False
                 continue
@@ -86,52 +88,73 @@ class ProcessHansardData(ProcessBase):
 
         try:
             # Check that we get a 200 response from the site. If not retry, then give up.
-            response = scraper.get(self.BASE_URL + collection + '/' + date)
+            response = scraper.get(self.BASE_URL+ '/' + collection + '/' + date)
             if response.status_code != 200:
                 time.sleep(10)
-                response = scraper.get(self.BASE_URL + collection + '/' + date)
+                response = scraper.get(self.BASE_URL+ '/' + collection + '/' + date)
                 if response.status_code != 200:
                     return -1
         except:
             return -1
 
-
         html = response.text
-
-
         soup = BeautifulSoup(html, 'html.parser')
 
-        a_tags = soup.find_all('a', class_='card-section')
+
+        # Target the div that contains the download links. We search for the div that contains
+        # an h2 element with the text "Downloads".
+        download_widget_divs = soup.select('div.widget:has(> * > h2:-soup-contains("Downloads"))')
+
+        if not download_widget_divs:
+            return 0
+
+        # We assume the first item in download_divs is the one we want. Then we search for all 
+        # the links in that div with the class 'dropdown-item'.
+        # aggregate_page_links = [div.select('a.dropdown-item') for div in download_widget_divs[0]]
+        aggregate_page_links = download_widget_divs[0].select('a.dropdown-item')
+
+
+
+        
+        
+        # The "Card folder divs" are the top level containers for the individual debates.
+        card_folder_divs = soup.select('div.widget > div.content > div.card-folder')
+
+        # TODO aggregate_page_links and card_folder_divs should be the same length, if not throw an error.
+
         count = 0
-        for a_tag in a_tags:
-            count += 1
-            href = a_tag.get('href')
-            if href and href!= '#' and not href.startswith('#'):
-                # Log the debate in the database with a status of 'pending'.
-                debate_id = self.db.insertDebate(processed_id, collection, date, '', href, 'pending', datetime.datetime.now(), datetime.datetime.now())
+        for i, card_folder_div in enumerate(card_folder_divs):
+            debate_links = card_folder_div.find_all('a', class_='card-section')
+            debate_ids = []
+            agg_href = self.BASE_URL + aggregate_page_links[i].attrs['href']
+            for debate_link in debate_links:
+                href = self.BASE_URL + debate_link.attrs['href']
+                title_div = debate_link.find('div', class_='primary-info')
+                for span in title_div.find_all('span'):
+                    span.decompose()
+                title = title_div.get_text(strip=True)
 
-                # Wait five seconds before scraping the page so CF doesn't get spooked.
-                time.sleep(5)   
+                debate_id = self.db.insertDebate(processed_id, collection, date, title, href, agg_href, 'pending', datetime.datetime.now(), datetime.datetime.now())
+                #debate_ids.append(debate_id)
+                count += 1
+            self.scrape_aggregate_page(agg_href, collection, date, processed_id)
 
-
-                print(f"Debate URL: {href}")
-
-                # Scrape the debate.
-                self.scrape_debate(href, collection, date, debate_id)
-
+            # Update 
+            
         return count
+
     
-    def scrape_debate(self, url, collection, date, debate_id):
+    def scrape_aggregate_page(self, url, collection, date, processed_id):
         scraper = cloudscraper.create_scraper() 
-        response = scraper.get(self.BASE_URL + url)
 
         try:
+            response = scraper.get(url)
             if response.status_code != 200:
                 time.sleep(10)
-                response = scraper.get(self.BASE_URL + url)
+                response = scraper.get(url)
                 if response.status_code != 200:
                     time.sleep(15)
-                    response = scraper.get(self.BASE_URL + url)
+                    response = scraper.get(url)
                     if response.status_code != 200:
                         return
         except:
@@ -141,24 +164,34 @@ class ProcessHansardData(ProcessBase):
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
 
-        debate_container = soup.find('div', class_='hero-banner-debate')
+        debate_list = soup.find('div', class_='child-debate-list')
         
-        if not debate_container:
+        if not debate_list:
             return
         
-        title_element = debate_container.find('h1')
-        subtitle_element = debate_container.find('h2')
+        debate_items = debate_list.find_all('div', class_='child-debate')
 
+        for i, debate_item in enumerate(debate_items):
+            self.scrape_debate(debate_item, collection, date, url, processed_id)
+            
+    def scrape_debate(self, debate_item, collection, date, agg_href, processed_id):
+        
+        title_element = debate_item.find('h2')
         title = title_element.text.strip() if title_element else ''
-        subtitle = subtitle_element.text.strip() if subtitle_element else ''
-        title_combined = title + '\n' + subtitle
-        title_combined = title_combined.strip()
 
-        # Update the debate with the title.
-        self.db.updateDebate(debate_id, debate_title=title_combined)
+        # Try to load the debate that matches the current title, date and colleciton. Due to a 
+        # quirk on the aggregated pages, there may be things that look like debates but don't 
+        # have a corresponding debate page in the menu page. In which case we need to create a
+        # new debate.
+        matching_debate_ids = self.db.getDebatesWithMatchingTitle(collection, date, title)
+
+        if matching_debate_ids:
+            debate_id = matching_debate_ids[0]
+        else:
+            debate_id = self.db.insertDebate(processed_id, collection, date, title, '', agg_href, 'pending', datetime.datetime.now(), datetime.datetime.now())
 
         # Find all the types of elements that we're interested in.
-        debate_items = soup.select('div.debate-item-contributiondebateitem, div.debate-item-otherdebateitem, div.debate-item-columnnumber')
+        debate_items = debate_item.select('div.debate-item-contributiondebateitem, div.debate-item-otherdebateitem, div.debate-item-columnnumber')
 
         for i, debate_item in enumerate(debate_items):
 
@@ -183,6 +216,11 @@ class ProcessHansardData(ProcessBase):
                     speaker_id = 0
 
                 content_paras = debate_item.find_all('p', class_='hs_Para')
+                if not content_paras:
+                    content_paras = debate_item.find_all('p', class_='hs_para')
+                if not content_paras:
+                    content_paras = debate_item.find_all('questiontext')
+
 
                 if speaker and content_paras:
                     print('Speaker: ' + speaker)
@@ -206,3 +244,5 @@ class ProcessHansardData(ProcessBase):
                     self.db.insertStatementAnon(debate_id, i, anon_statement_paragraph.text.strip())
         
         self.db.updateDebate(debate_id, debate_state="completed", updated=datetime.datetime.now())
+
+ 

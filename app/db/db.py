@@ -104,19 +104,30 @@ class Database:
         self.close()
         return id
 
-    def insertDebate(self, processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated):
+    def getDebatesWithMatchingTitle(self, collection, date, title):
         self.connect()
         self.cur.execute("""
-            INSERT INTO debate (processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            SELECT id
+            FROM debate
+            WHERE collection = %s AND debate_date = %s AND debate_title = %s AND debate_state = 'pending';
+        """, (collection, date, title))
+        ids = [row[0] for row in self.cur.fetchall()]
+        self.close()
+        return ids
+
+    def insertDebate(self, processed_id, collection, debate_date, debate_title, debate_url, debate_aggregate_url, debate_state, created, updated):
+        self.connect()
+        self.cur.execute("""
+            INSERT INTO debate (processed_id, collection, debate_date, debate_title, debate_url, debate_aggregate_url, debate_state, created, updated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
-        """, (processed_id, collection, debate_date, debate_title, debate_url, debate_state, created, updated))
+        """, (processed_id, collection, debate_date, debate_title, debate_url, debate_aggregate_url, debate_state, created, updated))
         self.conn.commit()
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
     
-    def updateDebate(self, id, processed_id=None, collection=None, debate_date=None, debate_title=None, debate_url=None, debate_state=None, created=None, updated=None):
+    def updateDebate(self, id, processed_id=None, collection=None, debate_date=None, debate_title=None, debate_url=None, debate_aggregate_url=None, debate_state=None, created=None, updated=None):
         self.connect()
         update_fields = []
         update_values = []
@@ -139,6 +150,9 @@ class Database:
         if debate_url:
             update_fields.append("debate_url = %s")
             update_values.append(debate_url)
+        if debate_aggregate_url:
+            update_fields.append("debate_aggregate_url = %s")
+            update_values.append(debate_aggregate_url)
         if debate_state:
             update_fields.append("debate_state = %s")
             update_values.append(debate_state)
@@ -182,17 +196,3 @@ class Database:
         inserted_id = self.cur.fetchone()[0]
         self.close()
         return inserted_id
-
-    
-
-    # def insertTag(self, document_id, tag):
-    #     self.connect()
-    #     self.cur.execute("""
-    #         INSERT INTO tag (document_id, tag)
-    #         VALUES (%s, %s)
-    #         RETURNING id;
-    #     """, (document_id, tag))
-    #     self.conn.commit()
-    #     inserted_id = self.cur.fetchone()[0]
-    #     self.close()
-    #     return inserted_id
