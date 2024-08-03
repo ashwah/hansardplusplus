@@ -9,10 +9,9 @@ import time
 process_commons = ProcessHansardData('commons')
 process_lords = ProcessHansardData('lords')
 
-process_lords.process()
 
-# schedule.every(5).minutes.do(process_commons.thread)
-# schedule.every(5).minutes.do(process_lords.thread)
+schedule.every(2).minutes.do(process_commons.thread)
+schedule.every(2).minutes.do(process_lords.thread)
 
 running = True
 

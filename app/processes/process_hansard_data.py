@@ -21,11 +21,10 @@ class ProcessHansardData(ProcessBase):
         self.db = Database()
 
         print("Checking Hansard site...")
-            
-
 
         # Start from yesterday
         current_date = datetime.date.today() - datetime.timedelta(days=1) 
+        current_date = datetime.date(1990, 11, 1) 
 
         processed = self.db.getProcessedDateList(self.collection)
 
@@ -35,7 +34,7 @@ class ProcessHansardData(ProcessBase):
             # Set the URL for this collection and date.
             url = self.BASE_URL + self.collection + '/' + current_date.isoformat()
 
-            if current_date < datetime.date(2023, 11, 1):
+            if current_date < datetime.date(1990, 1, 1):
                 print(f"Hit stop date, don't go beyond.")
                 loop = False
                 continue
@@ -100,7 +99,6 @@ class ProcessHansardData(ProcessBase):
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
 
-
         # Target the div that contains the download links. We search for the div that contains
         # an h2 element with the text "Downloads".
         download_widget_divs = soup.select('div.widget:has(> * > h2:-soup-contains("Downloads"))')
@@ -112,10 +110,6 @@ class ProcessHansardData(ProcessBase):
         # the links in that div with the class 'dropdown-item'.
         # aggregate_page_links = [div.select('a.dropdown-item') for div in download_widget_divs[0]]
         aggregate_page_links = download_widget_divs[0].select('a.dropdown-item')
-
-
-
-        
         
         # The "Card folder divs" are the top level containers for the individual debates.
         card_folder_divs = soup.select('div.widget > div.content > div.card-folder')
@@ -139,12 +133,14 @@ class ProcessHansardData(ProcessBase):
                 count += 1
             self.scrape_aggregate_page(agg_href, collection, date, processed_id)
 
-            # Update 
             
         return count
 
     
     def scrape_aggregate_page(self, url, collection, date, processed_id):
+        print('Scraping aggregate page: ' + url)
+
+        time.sleep(5)
         scraper = cloudscraper.create_scraper() 
 
         try:
@@ -215,9 +211,10 @@ class ProcessHansardData(ProcessBase):
                 else:
                     speaker_id = 0
 
-                content_paras = debate_item.find_all('p', class_='hs_Para')
-                if not content_paras:
-                    content_paras = debate_item.find_all('p', class_='hs_para')
+                content_paras = debate_item.find_all('p')
+                # content_paras = debate_item.find_all('p', class_='hs_Para')
+                # if not content_paras:
+                #     content_paras = debate_item.find_all('p', class_='hs_para')
                 if not content_paras:
                     content_paras = debate_item.find_all('questiontext')
 
