@@ -115,6 +115,33 @@ class Database:
         self.close()
         return ids
 
+    def getDebateFromId(self, debate_id):
+        self.connect()
+        self.cur.execute("""
+            SELECT *
+            FROM debate
+            WHERE id = %s;
+        """, (debate_id,))
+        return self.cur.fetchall()[0]
+
+    def getStatementsFromDebate(self, debate_id):
+        self.connect()
+        self.cur.execute("""
+            SELECT order_id, speaker_raw, statement_raw
+            FROM statement
+            WHERE debate_id = %s;
+        """, (debate_id,))
+        return self.cur.fetchall()
+
+    def getStatementsAnonFromDebate(self, debate_id):
+        self.connect()
+        self.cur.execute("""
+            SELECT order_id, statement_raw
+            FROM statement_anon
+            WHERE debate_id = %s;
+        """, (debate_id,))
+        return self.cur.fetchall()
+    
     def insertDebate(self, processed_id, collection, debate_date, debate_title, debate_url, debate_aggregate_url, debate_state, created, updated):
         self.connect()
         self.cur.execute("""
